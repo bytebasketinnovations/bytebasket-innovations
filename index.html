@@ -432,6 +432,15 @@
   .submit { width: 100%; padding: 16px; font-size: 1.02rem; animation: pulseGlow 2.6s infinite; }
   .submit:hover { animation: none; }
 
+  .form-status { margin-top: 16px; font-size: .95rem; text-align: center; min-height: 1.4em; }
+  .form-status.ok { color: #5eead4; }
+  .form-status.err { color: #fca5a5; }
+  .form-status.busy { color: var(--cyan); }
+  .mail-fallback {
+    display: block; margin: 12px auto 0; background: none; border: none; color: var(--cyan);
+    text-decoration: underline; cursor: pointer; font: inherit; font-size: .9rem;
+  }
+
   footer {
     text-align: center; padding: 30px 20px; color: var(--muted); font-size: .9rem;
     border-top: 1px solid var(--line); font-family: var(--mono);
@@ -677,7 +686,7 @@
             <div class="ico">✉️</div>
             <div>
               <small>EMAIL</small>
-              <a href="/cdn-cgi/l/email-protection#60021914050201130b0514090e0e0f160114090f0e1320070d01090c4e030f0d"><span class="__cf_email__" data-cfemail="95f7ece1f0f7f4e6fef0e1fcfbfbfae3f4e1fcfafbe6d5f2f8f4fcf9bbf6faf8">[email&#160;protected]</span></a>
+              <a href="mailto:bytebasketinnovations@gmail.com">bytebasketinnovations@gmail.com</a>
             </div>
           </div>
           <div class="info-item">
@@ -689,7 +698,7 @@
           </div>
         </div>
 
-        <form class="enquiry reveal reveal-delay-1"
+        <form class="enquiry reveal reveal-delay-1" id="orderForm"
               action="https://formsubmit.co/bytebasketinnovations@gmail.com"
               method="POST">
           <h3>Place an Order</h3>
@@ -730,7 +739,9 @@
             <textarea id="details" name="details" required placeholder="Tell us what you need, your deadline, and any references or preferences"></textarea>
           </div>
 
-          <button type="submit" class="btn btn-dark submit">Send Order Enquiry →</button>
+          <button type="submit" class="btn btn-dark submit" id="sendBtn">Send Order Enquiry →</button>
+          <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
+          <button type="button" class="mail-fallback" id="mailFallback" hidden>Open in my email app instead</button>
         </form>
       </div>
     </div>
@@ -743,7 +754,7 @@
 
 <button class="to-top" id="toTop" aria-label="Back to top">↑</button>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
   // Header, progress bar, back-to-top
   var header = document.getElementById('header');
   var progress = document.getElementById('progress');
@@ -820,6 +831,68 @@
       }
     });
   });
+
+  // Order form: send in the background, with a fallback to the user's email app
+  (function () {
+    var form = document.getElementById('orderForm');
+    var status = document.getElementById('formStatus');
+    var btn = document.getElementById('sendBtn');
+    var fallback = document.getElementById('mailFallback');
+    var TO = 'bytebasketinnovations@gmail.com';
+    var lastData = null;
+
+    function buildMailto(d) {
+      var body = 'Name: ' + d.name + '\nPhone: ' + d.phone + '\nEmail: ' + d.email +
+                 '\nService: ' + d.service + '\n\nProject details:\n' + d.details;
+      return 'mailto:' + TO + '?subject=' + encodeURIComponent('New Order Enquiry - ByteBasket Innovations') +
+             '&body=' + encodeURIComponent(body);
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData(form);
+      var d = {
+        name: fd.get('name') || '', phone: fd.get('phone') || '', email: fd.get('email') || '',
+        service: fd.get('service') || '', details: fd.get('details') || ''
+      };
+      lastData = d;
+      btn.disabled = true;
+      status.className = 'form-status busy';
+      status.textContent = 'Sending your enquiry…';
+      fallback.hidden = true;
+
+      var payload = {
+        name: d.name, phone: d.phone, email: d.email, service: d.service, details: d.details,
+        _subject: 'New Order Enquiry - ByteBasket Innovations', _captcha: 'false', _template: 'table'
+      };
+
+      fetch('https://formsubmit.co/ajax/' + TO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (res.ok && (data.success === true || data.success === 'true')) {
+            status.className = 'form-status ok';
+            status.textContent = '✓ Thanks! Your enquiry has been sent. We will reply to you soon.';
+            form.reset();
+          } else {
+            throw new Error(data.message || 'Send failed');
+          }
+        });
+      }).catch(function () {
+        status.className = 'form-status err';
+        status.textContent = 'Could not send automatically. Please use the button below to send it from your email app.';
+        fallback.hidden = false;
+      }).finally(function () {
+        btn.disabled = false;
+      });
+    });
+
+    fallback.addEventListener('click', function () {
+      if (lastData) window.location.href = buildMailto(lastData);
+    });
+  })();
 </script>
 </body>
 </html>
