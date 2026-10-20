@@ -698,13 +698,8 @@
           </div>
         </div>
 
-        <form class="enquiry reveal reveal-delay-1" id="orderForm"
-              action="https://formsubmit.co/bytebasketinnovations@gmail.com"
-              method="POST">
+        <form class="enquiry reveal reveal-delay-1" id="orderForm" novalidate>
           <h3>Place an Order</h3>
-          <input type="hidden" name="_subject" value="New Order Enquiry - ByteBasket Innovations">
-          <input type="hidden" name="_template" value="table">
-          <input type="hidden" name="_captcha" value="false">
 
           <div class="row">
             <div class="field">
@@ -739,9 +734,8 @@
             <textarea id="details" name="details" required placeholder="Tell us what you need, your deadline, and any references or preferences"></textarea>
           </div>
 
-          <button type="submit" class="btn btn-dark submit" id="sendBtn">Send Order Enquiry →</button>
+          <button type="submit" class="btn btn-dark submit" id="sendBtn">Open Email with Enquiry →</button>
           <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
-          <button type="button" class="mail-fallback" id="mailFallback" hidden>Open in my email app instead</button>
         </form>
       </div>
     </div>
@@ -832,65 +826,40 @@
     });
   });
 
-  // Order form: send in the background, with a fallback to the user's email app
+  // Order form: opens the visitor's email app with the enquiry pre-filled
   (function () {
     var form = document.getElementById('orderForm');
     var status = document.getElementById('formStatus');
-    var btn = document.getElementById('sendBtn');
-    var fallback = document.getElementById('mailFallback');
     var TO = 'bytebasketinnovations@gmail.com';
-    var lastData = null;
-
-    function buildMailto(d) {
-      var body = 'Name: ' + d.name + '\nPhone: ' + d.phone + '\nEmail: ' + d.email +
-                 '\nService: ' + d.service + '\n\nProject details:\n' + d.details;
-      return 'mailto:' + TO + '?subject=' + encodeURIComponent('New Order Enquiry - ByteBasket Innovations') +
-             '&body=' + encodeURIComponent(body);
-    }
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var fd = new FormData(form);
-      var d = {
-        name: fd.get('name') || '', phone: fd.get('phone') || '', email: fd.get('email') || '',
-        service: fd.get('service') || '', details: fd.get('details') || ''
-      };
-      lastData = d;
-      btn.disabled = true;
-      status.className = 'form-status busy';
-      status.textContent = 'Sending your enquiry…';
-      fallback.hidden = true;
+      var v = function (k) { return (fd.get(k) || '').toString().trim(); };
+      var d = { name: v('name'), phone: v('phone'), email: v('email'), service: v('service'), details: v('details') };
 
-      var payload = {
-        name: d.name, phone: d.phone, email: d.email, service: d.service, details: d.details,
-        _subject: 'New Order Enquiry - ByteBasket Innovations', _captcha: 'false', _template: 'table'
-      };
-
-      fetch('https://formsubmit.co/ajax/' + TO, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(function (res) {
-        return res.json().catch(function () { return {}; }).then(function (data) {
-          if (res.ok && (data.success === true || data.success === 'true')) {
-            status.className = 'form-status ok';
-            status.textContent = '✓ Thanks! Your enquiry has been sent. We will reply to you soon.';
-            form.reset();
-          } else {
-            throw new Error(data.message || 'Send failed');
-          }
-        });
-      }).catch(function () {
+      if (!d.name || !d.phone || !d.email || !d.service || !d.details) {
         status.className = 'form-status err';
-        status.textContent = 'Could not send automatically. Please use the button below to send it from your email app.';
-        fallback.hidden = false;
-      }).finally(function () {
-        btn.disabled = false;
-      });
-    });
+        status.textContent = 'Please fill in all the required fields.';
+        return;
+      }
 
-    fallback.addEventListener('click', function () {
-      if (lastData) window.location.href = buildMailto(lastData);
+      var body = [
+        'Name: ' + d.name,
+        'Phone: ' + d.phone,
+        'Email: ' + d.email,
+        'Service: ' + d.service,
+        '',
+        'Project details:',
+        d.details
+      ].join('\r\n');
+
+      var subject = 'New Order Enquiry - ' + d.service + ' - ' + d.name;
+      var url = 'mailto:' + TO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+
+      status.className = 'form-status ok';
+      status.textContent = 'Your email app is opening with the enquiry ready. Just press Send.';
+      window.location.href = url;
     });
   })();
 </script>
